@@ -118,8 +118,11 @@ namespace SEO_Calculator
         private static WebClient WebClient;
 
         private static void Main(string[] args)
+            => MainAsync(args).GetAwaiter().GetResult();
+
+        private static async Task MainAsync(string[] args)
         {
-            GenerateResults(ResultSorting);
+            await GenerateResults(ResultSorting);
             DisplayResults(ResultFormat);
 
             WebClient.Dispose();
@@ -223,30 +226,32 @@ namespace SEO_Calculator
         }
 
         // Get Bing Results
-        private static long GetBingResults(string searchPattern)
+        private static async Task<long> GetBingResults(string searchPattern)
         {
             var source = GetUrlSourceCode($"{BingQuery}{searchPattern}");
+            await source;
 
             return Convert.ToInt64(Convert
-                .ToString(Regex.Match(Convert.ToString(Regex.Match(source, BingRegExResultsA).Groups[0]),
+                .ToString(Regex.Match(Convert.ToString(Regex.Match(source.Result, BingRegExResultsA).Groups[0]),
                         BingRegExResultsB).Groups[0]
                 ).Replace(".", ""));
         }
 
         // Get Google Results
-        private static long GetGoogleResults(string searchPattern)
+        private static async Task<long> GetGoogleResults(string searchPattern)
         {
             var source = GetUrlSourceCode(string.Format(GoogleQuery, searchPattern));
+            await source;
 
             return Convert.ToInt64(Convert
-                .ToString(Regex.Match(Convert.ToString(Regex.Match(source, GoogleRegExResultsA).Groups[0]),
+                .ToString(Regex.Match(Convert.ToString(Regex.Match(source.Result, GoogleRegExResultsA).Groups[0]),
                         GoogleRegExResultsB).Groups[0]
                 ).Replace(",", ""));
         }
 
-        private static void GenerateResults(Sorting sorting)
+        private static async Task GenerateResults(Sorting sorting)
         {
-            Results.Generate();
+            await Results.Generate();
 
             switch (sorting)
             {
@@ -458,7 +463,7 @@ namespace SEO_Calculator
             public static List<Result> BingResults { get; set; } = new List<Result>();
 
             // Generate Result Lists
-            internal static void Generate()
+            internal static async Task Generate()
             {
                 BingResults.Clear();
                 GoogleResults.Clear();
@@ -483,16 +488,16 @@ namespace SEO_Calculator
                         switch (SearchEngine)
                         {
                             case SearchEngines.All:
-                                BingResults.Add(new Result(term, GetBingResults(term)));
-                                GoogleResults.Add(new Result(term, GetGoogleResults(term)));
+                                BingResults.Add(new Result(term, await GetBingResults(term)));
+                                GoogleResults.Add(new Result(term, await GetGoogleResults(term)));
                                 break;
 
                             case SearchEngines.Bing:
-                                BingResults.Add(new Result(term, GetBingResults(term)));
+                                BingResults.Add(new Result(term, await GetBingResults(term)));
                                 break;
 
                             case SearchEngines.Google:
-                                BingResults.Add(new Result(term, GetGoogleResults(term)));
+                                BingResults.Add(new Result(term, await GetGoogleResults(term)));
                                 break;
                         }
 
