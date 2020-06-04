@@ -8,6 +8,8 @@ using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.VisualBasic;
+using OpenQA.Selenium;
+using OpenQA.Selenium.Chrome;
 using RestSharp;
 using ShellProgressBar;
 using static SEO_Calculator.Program;
@@ -20,7 +22,7 @@ namespace SEO_Calculator
         //private string Terms_Hint = string.Format("Use \"{0}\" character to separate multiple terms.", My.Settings.User_Separator);
 
         // POST queries:
-        private static readonly string BingQuery = "http://www.bing.com/search?q=";
+        private static readonly string BingQuery = "https://www.bing.com/search?q=";
 
         // Regular Expressions:
         private static readonly string BingRegExResultsA = "id=\"count\">.+?<";
@@ -29,7 +31,7 @@ namespace SEO_Calculator
 
         private static readonly string GoogleQuery = "search?q={0}&nfpr=1";
 
-        private static readonly string GoogleRegExResultsA = "[^#]resultStats.+?<";
+        private static readonly string GoogleRegExResultsA = "[^#]result-stats.+?<";
         private static readonly string GoogleRegExResultsB = @"[\d\,]+";
 
         private static readonly string HtmlDocumentBackColor =
@@ -118,12 +120,18 @@ namespace SEO_Calculator
 
         //private static WebClient WebClient;
 
+        private static IWebDriver web;
+
         private static void Main(string[] args)
             => MainAsync(args).GetAwaiter().GetResult();
 
         private static async Task MainAsync(string[] args)
         {
-            await GenerateResults(ResultSorting);
+            using (web = CreateDriver())
+            {
+                await GenerateResults(ResultSorting);
+            }
+
             DisplayResults(ResultFormat);
 
             //WebClient.Dispose();
@@ -131,8 +139,101 @@ namespace SEO_Calculator
             Console.Read();
         }
 
+        private static ChromeDriver CreateDriver()
+        {
+            const int width = 1040,
+                      height = 890;
+
+            const string userAgent =
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.122 Safari/537.36";
+
+            var chromeOptions = new ChromeOptions();
+
+            chromeOptions.AddArgument("--no-sandbox");
+            chromeOptions.AddArgument("disable-extensions");
+            chromeOptions.AddArguments("--disable-blink-features");
+            chromeOptions.AddArguments("--disable-blink-features=AutomationControlled");
+
+            chromeOptions.AddArguments("--lang=en");
+
+            chromeOptions.AddExcludedArgument("enable-automation");
+            //chromeOptions.AddAdditionalChromeOption("useAutomationExtension", false);
+
+            chromeOptions.AddUserProfilePreference("credentials_enable_service", false);
+            chromeOptions.AddUserProfilePreference("profile.password_manager_enable", false);
+
+            chromeOptions.AddArgument($@"--user-agent=""{userAgent}""");
+
+            chromeOptions.AddArgument("--user-data-dir=chrome-data");
+            chromeOptions.AddArgument($"--window-size={width},{height}");
+
+            // ReSharper disable once JoinDeclarationAndInitializer
+            ChromeDriver driver;
+
+            //if (IsLinux)
+            //{
+            //    // Thanks to: https://stackoverflow.com/questions/41133391/which-chromedriver-version-is-compatible-with-which-chrome-browser-version
+            //    // https://chromium.woolyss.com/
+
+            //    var service = ChromeDriverService.CreateDefaultService();
+
+            //    service.LogPath = Path.Combine(Environment.CurrentDirectory, "logs", "client.log");
+            //    Console.WriteLine(service.LogPath);
+
+            //    if (File.Exists(service.LogPath))
+            //        F.SetBackupFile(service.LogPath);
+
+            //    if (!Directory.Exists(service.LogPath.ParentDirectory()))
+            //        Directory.CreateDirectory(service.LogPath.ParentDirectory());
+
+            //    service.EnableVerboseLogging = true;
+
+            //    chromeOptions.AddArguments("headless");
+            //    chromeOptions.AddArgument("--remote-debugging-port=9222");
+
+            //    //chromeOptions.AddArgument("--disable-extensions");
+            //    //chromeOptions.AddArgument("--proxy-server='direct://'");
+            //    //chromeOptions.AddArgument("--proxy-bypass-list=*");
+            //    //chromeOptions.AddArgument("--disable-gpu");
+            //    //chromeOptions.AddArgument("--disable-dev-shm-usage");
+            //    //chromeOptions.AddArgument("--no-sandbox");
+            //    //chromeOptions.AddArgument("--ignore-certificate-errors");
+
+            //    driver = new ChromeDriver(service, chromeOptions);
+            //}
+            //else
+            driver = new ChromeDriver(chromeOptions);
+
+            var paramsForDisableDriver = new Dictionary<string, object>
+            {
+                {"source", "Object.defineProperty(navigator, 'webdriver', { get: () => undefined })"}
+            };
+
+            driver.ExecuteChromeCommand("Page.addScriptToEvaluateOnNewDocument", paramsForDisableDriver);
+
+            var paramsForUserAgent = new Dictionary<string, object>
+            {
+                { "userAgent", userAgent },
+                { "platform", "Windows" }
+            };
+
+            driver.ExecuteChromeCommand("Network.setUserAgentOverride", paramsForUserAgent);
+
+            /*
+            var botResult = driver.ExecuteJavaScript<ReadOnlyCollection<object>>(Resources.botdetection_js);
+            if (!botResult.IsNullOrEmpty())
+                Console.WriteLine($"Bot detected!\r\n{string.Join(Environment.NewLine, botResult)}", Color.Aqua);
+            */
+
+            //var botResult = driver.ExecuteJavaScript<bool>(Resources.botdetection_js);
+            //if (botResult)
+            //    Console.WriteLine("Bot detected!", Color.Aqua);
+
+            return driver;
+        }
+
         // Get URL SourceCode
-        private static async Task<string> GetUrlSourceCode(SearchEngines engine, string url)
+        private static async Task<string> GetUrlSourceCode(SearchEngines engine, string url, bool useRest = false)
         {
             string engineUrl = "";
 
@@ -142,40 +243,66 @@ namespace SEO_Calculator
                     break;
 
                 case SearchEngines.Google:
-                    engineUrl = "http://www.google.com/";
+                    engineUrl = "https://www.google.com/";
                     break;
 
                 default:
                     throw new InvalidOperationException("Unsupported engine type.");
             }
 
-            var client = new RestClient(engineUrl);
-            var request = new RestRequest(url);
-            var get = client.GetAsync<string>(request);
+            if (!useRest)
+                url = engineUrl + url;
 
-            await get;
+            //var client = new RestClient(engineUrl);
+            //var request = new RestRequest(url);
+            //var get = client.GetAsync<string>(request);
 
-            return get.Result;
+            //await get;
 
-            //try
-            //{
-            //return new StreamReader(WebRequest.Create(url).GetResponse().GetResponseStream() ??
-            //                        throw new InvalidOperationException()).ReadToEnd();
+            //return get.Result;
 
-            //if (WebClient == null)
-            //    WebClient = new WebClient();
+            try
+            {
+                //return new StreamReader(WebRequest.Create(url).GetResponse().GetResponseStream() ??
+                //                        throw new InvalidOperationException()).ReadToEnd();
 
-            //var task = Task.Run(() => new StreamReader(WebRequest.Create(url).GetResponse().GetResponseStream() ??
-            //                                                                   throw new InvalidOperationException()).ReadToEnd());
+                //if (WebClient == null)
+                //    WebClient = new WebClient();
 
-            //await task;
-            //return task.Result;
+                //var task = Task.Run(() => new StreamReader(WebRequest.Create(url).GetResponse().GetResponseStream() ??
+                //                                                                   throw new InvalidOperationException()).ReadToEnd());
 
-            //}
-            //catch (Exception ex)
-            //{
-            //    throw new Exception(ex.Message);
-            //}
+                //var task = Task.Run(() =>
+                //{
+                //    var request = WebRequest.Create(url);
+                //    // request.Timeout = 1000;
+                //    using (var response = request.GetResponse())
+                //    using (var responseStream = response.GetResponseStream())
+                //    {
+                //        if (responseStream == null)
+                //            throw new InvalidOperationException();
+
+                //        using (var reader = new StreamReader(responseStream))
+                //            return reader.ReadToEnd();
+                //    }
+                //});
+
+                //await task;
+                //return task.Result;
+
+                var task = Task.Run(() =>
+                {
+                    web.Navigate().GoToUrl(url);
+                    return web.PageSource;
+                });
+
+                await task;
+                return task.Result;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
         }
 
         // RGB To HTML
@@ -256,10 +383,17 @@ namespace SEO_Calculator
             var source = GetUrlSourceCode(SearchEngines.Bing, $"{BingQuery}{searchPattern}");
             await source;
 
-            return Convert.ToInt64(Convert
-                .ToString(Regex.Match(Convert.ToString(Regex.Match(source.Result, BingRegExResultsA).Groups[0]),
-                        BingRegExResultsB).Groups[0]
-                ).Replace(".", ""));
+            try
+            {
+                return Convert.ToInt64(Convert
+                    .ToString(Regex.Match(Convert.ToString(Regex.Match(source.Result, BingRegExResultsA).Groups[0]),
+                            BingRegExResultsB).Groups[0]
+                    ).Replace(".", ""));
+            }
+            catch
+            {
+                return 0;
+            }
         }
 
         // Get Google Results
@@ -268,10 +402,17 @@ namespace SEO_Calculator
             var source = GetUrlSourceCode(SearchEngines.Google, string.Format(GoogleQuery, searchPattern));
             await source;
 
-            return Convert.ToInt64(Convert
-                .ToString(Regex.Match(Convert.ToString(Regex.Match(source.Result, GoogleRegExResultsA).Groups[0]),
-                        GoogleRegExResultsB).Groups[0]
-                ).Replace(",", ""));
+            try
+            {
+                return Convert.ToInt64(Convert
+                    .ToString(Regex.Match(Convert.ToString(Regex.Match(source.Result, GoogleRegExResultsA).Groups[0]),
+                            GoogleRegExResultsB).Groups[0]
+                    ).Replace(",", ""));
+            }
+            catch
+            {
+                return 0;
+            }
         }
 
         private static async Task GenerateResults(Sorting sorting)
