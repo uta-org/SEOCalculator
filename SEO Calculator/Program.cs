@@ -8,6 +8,7 @@ using System.Net;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.VisualBasic;
+using RestSharp;
 using ShellProgressBar;
 using static SEO_Calculator.Program;
 
@@ -26,7 +27,7 @@ namespace SEO_Calculator
 
         private static readonly string BingRegExResultsB = @"[\d\.]+";
 
-        private static readonly string GoogleQuery = "http://www.google.com/search?q={0}&nfpr=1";
+        private static readonly string GoogleQuery = "search?q={0}&nfpr=1";
 
         private static readonly string GoogleRegExResultsA = "[^#]resultStats.+?<";
         private static readonly string GoogleRegExResultsB = @"[\d\,]+";
@@ -115,7 +116,7 @@ namespace SEO_Calculator
         // [PROP] HTML_ForeColor
         private static string HtmlForeColor => ColorTranslator.ToHtml(Color.White);
 
-        private static WebClient WebClient;
+        //private static WebClient WebClient;
 
         private static void Main(string[] args)
             => MainAsync(args).GetAwaiter().GetResult();
@@ -125,26 +126,50 @@ namespace SEO_Calculator
             await GenerateResults(ResultSorting);
             DisplayResults(ResultFormat);
 
-            WebClient.Dispose();
+            //WebClient.Dispose();
 
             Console.Read();
         }
 
         // Get URL SourceCode
-        private static async Task<string> GetUrlSourceCode(string url)
+        private static async Task<string> GetUrlSourceCode(SearchEngines engine, string url)
         {
+            string engineUrl = "";
+
+            switch (engine)
+            {
+                case SearchEngines.Bing:
+                    break;
+
+                case SearchEngines.Google:
+                    engineUrl = "http://www.google.com/";
+                    break;
+
+                default:
+                    throw new InvalidOperationException("Unsupported engine type.");
+            }
+
+            var client = new RestClient(engineUrl);
+            var request = new RestRequest(url);
+            var get = client.GetAsync<string>(request);
+
+            await get;
+
+            return get.Result;
+
             //try
             //{
             //return new StreamReader(WebRequest.Create(url).GetResponse().GetResponseStream() ??
             //                        throw new InvalidOperationException()).ReadToEnd();
 
-            if (WebClient == null)
-                WebClient = new WebClient();
+            //if (WebClient == null)
+            //    WebClient = new WebClient();
 
-            var task = Task.Run(() => WebClient.DownloadString(url));
+            //var task = Task.Run(() => new StreamReader(WebRequest.Create(url).GetResponse().GetResponseStream() ??
+            //                                                                   throw new InvalidOperationException()).ReadToEnd());
 
-            await task;
-            return task.Result;
+            //await task;
+            //return task.Result;
 
             //}
             //catch (Exception ex)
@@ -228,7 +253,7 @@ namespace SEO_Calculator
         // Get Bing Results
         private static async Task<long> GetBingResults(string searchPattern)
         {
-            var source = GetUrlSourceCode($"{BingQuery}{searchPattern}");
+            var source = GetUrlSourceCode(SearchEngines.Bing, $"{BingQuery}{searchPattern}");
             await source;
 
             return Convert.ToInt64(Convert
@@ -240,7 +265,7 @@ namespace SEO_Calculator
         // Get Google Results
         private static async Task<long> GetGoogleResults(string searchPattern)
         {
-            var source = GetUrlSourceCode(string.Format(GoogleQuery, searchPattern));
+            var source = GetUrlSourceCode(SearchEngines.Google, string.Format(GoogleQuery, searchPattern));
             await source;
 
             return Convert.ToInt64(Convert
