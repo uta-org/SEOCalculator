@@ -5,12 +5,16 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualBasic;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
+using OpenQA.Selenium.Interactions;
 using RestSharp;
+using SEO_Calculator.Extensions;
 using ShellProgressBar;
 using static SEO_Calculator.Program;
 
@@ -122,11 +126,58 @@ namespace SEO_Calculator
 
         private static IWebDriver web;
 
+        private const string SearchBarXPath = "/html/body/div[3]/form/div[2]/div[1]/div[2]/div/div[2]/input";
+
+        private const string SearchButtonXPath = "/html/body/div[3]/form/div[2]/div[1]/div[2]/button";
+
+        private const string ResultStatsId = "result-stats";
+
+        private static bool exitSystem = false;
+
+        #region Trap application termination
+
+        [DllImport("Kernel32")]
+        private static extern bool SetConsoleCtrlHandler(EventHandler handler, bool add);
+
+        private delegate bool EventHandler(CtrlType sig);
+
+        private static EventHandler _handler;
+
+        private enum CtrlType
+        {
+            CTRL_C_EVENT = 0,
+            CTRL_BREAK_EVENT = 1,
+            CTRL_CLOSE_EVENT = 2,
+            CTRL_LOGOFF_EVENT = 5,
+            CTRL_SHUTDOWN_EVENT = 6
+        }
+
+        private static bool Handler(CtrlType sig)
+        {
+            Console.WriteLine("Exiting system due to external CTRL-C, or process kill, or shutdown");
+
+            OnExit();
+
+            //allow main to run off
+            exitSystem = true;
+
+            //shutdown right away so there are no lingering threads
+            Environment.Exit(-1);
+
+            return true;
+        }
+
+        #endregion Trap application termination
+
         private static void Main(string[] args)
             => MainAsync(args).GetAwaiter().GetResult();
 
         private static async Task MainAsync(string[] args)
         {
+            // Some biolerplate to react to close window event, CTRL-C, kill, etc
+            _handler += Handler;
+            SetConsoleCtrlHandler(_handler, true);
+
             using (web = CreateDriver())
             {
                 await GenerateResults(ResultSorting);
@@ -136,7 +187,14 @@ namespace SEO_Calculator
 
             //WebClient.Dispose();
 
-            Console.Read();
+            //Console.Read();
+        }
+
+        private static void OnExit()
+        {
+            //web.Close();
+            //web.Quit();
+            //web.Dispose();
         }
 
         private static ChromeDriver CreateDriver()
@@ -233,7 +291,7 @@ namespace SEO_Calculator
         }
 
         // Get URL SourceCode
-        private static async Task<string> GetUrlSourceCode(SearchEngines engine, string url, bool useRest = false)
+        private static async Task<string> GetUrlSourceCode(SearchEngines engine, string url, string term, bool useRest = false)
         {
             string engineUrl = "";
 
@@ -292,7 +350,35 @@ namespace SEO_Calculator
 
                 var task = Task.Run(() =>
                 {
-                    web.Navigate().GoToUrl(url);
+                    var curUrl = web.Url;
+                    bool search = true;
+                    if (engine == SearchEngines.Bing && !curUrl.Contains("bing") || engine == SearchEngines.Google && !curUrl.Contains("google"))
+                    {
+                        web.Navigate().GoToUrl(url);
+                        search = false;
+                    }
+
+                    if (search)
+                    {
+                        var element = web.WaitForElement(By.XPath(SearchBarXPath));
+                        var text = element.GetAttribute("value");
+
+                        var action = new Actions(web);
+
+                        for (int i = 0; i < text.Length; i++)
+                            action = action.SendKeys(element, Keys.Backspace);
+
+                        action.Build().Perform();
+                        element.SendKeys(term);
+                    }
+
+                    var button = web.WaitForElement(By.XPath(SearchButtonXPath));
+                    button.Click();
+
+                    Thread.Sleep(200);
+
+                    // TODO: Check for bot confirmation
+
                     return web.PageSource;
                 });
 
@@ -380,7 +466,7 @@ namespace SEO_Calculator
         // Get Bing Results
         private static async Task<long> GetBingResults(string searchPattern)
         {
-            var source = GetUrlSourceCode(SearchEngines.Bing, $"{BingQuery}{searchPattern}");
+            var source = GetUrlSourceCode(SearchEngines.Bing, $"{BingQuery}{searchPattern}", searchPattern);
             await source;
 
             try
@@ -399,7 +485,7 @@ namespace SEO_Calculator
         // Get Google Results
         private static async Task<long> GetGoogleResults(string searchPattern)
         {
-            var source = GetUrlSourceCode(SearchEngines.Google, string.Format(GoogleQuery, searchPattern));
+            var source = GetUrlSourceCode(SearchEngines.Google, string.Format(GoogleQuery, searchPattern), searchPattern);
             await source;
 
             try
