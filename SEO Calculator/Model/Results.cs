@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using OpenQA.Selenium;
 using SEO_Calculator.Enums;
 using ShellProgressBar;
 using static SEO_Calculator.Core.SEO;
@@ -22,7 +23,7 @@ namespace SEO_Calculator.Model
         }
 
         // Generate Result Lists
-        internal static async Task Generate(ProgressBar progressBar, string[] terms, int min, int max, SearchEngines searchEngine, bool clear)
+        internal static async Task Generate(IWebDriver web, ProgressBar progressBar, string[] terms, int min, int max, SearchEngines searchEngine, bool clear)
         {
             if (clear)
             {
@@ -44,16 +45,16 @@ namespace SEO_Calculator.Model
                 switch (searchEngine)
                 {
                     case SearchEngines.All:
-                        BingResults.Add(new Result(term, await GetBingResults(term)));
-                        GoogleResults.Add(new Result(term, await GetGoogleResults(term)));
+                        BingResults.Add(new Result(term, await GetBingResults(web, term)));
+                        GoogleResults.Add(new Result(term, await GetGoogleResults(web, term)));
                         break;
 
                     case SearchEngines.Bing:
-                        BingResults.Add(new Result(term, await GetBingResults(term)));
+                        BingResults.Add(new Result(term, await GetBingResults(web, term)));
                         break;
 
                     case SearchEngines.Google:
-                        BingResults.Add(new Result(term, await GetGoogleResults(term)));
+                        BingResults.Add(new Result(term, await GetGoogleResults(web, term)));
                         break;
                 }
 

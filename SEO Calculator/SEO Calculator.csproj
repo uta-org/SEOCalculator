@@ -68,6 +68,7 @@
     <Compile Include="Core\SEO.cs" />
     <Compile Include="Enums\Enums.cs" />
     <Compile Include="Extensions\DriverHelper.cs" />
+    <Compile Include="Extensions\IOHelper.cs" />
     <Compile Include="Extensions\StringHelper.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

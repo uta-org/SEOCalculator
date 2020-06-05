@@ -1,4 +1,6 @@
-﻿using System;
+﻿// #define PARALLEL
+
+using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -12,9 +14,9 @@ namespace SEO_Calculator
 {
     internal class Program
     {
-        public static IWebDriver Web { get; private set; }
-
         private const int MAX_INSTANCES = 5;
+
+        private static List<IWebDriver> webs = new List<IWebDriver>();
 
         private static bool exitSystem;
 
@@ -62,26 +64,29 @@ namespace SEO_Calculator
             _handler += Handler;
             SetConsoleCtrlHandler(_handler, true);
 
-            var tasks = new List<Task>();
-
-            var terms = Results.GetNotNullTerms(Terms, out int count);
-
             var options = new ProgressBarOptions
             {
                 ProgressCharacter = '─',
                 ProgressBarOnBottom = true
             };
 
-            using (var progressBar = new ProgressBar(count, $"Step 0 of {count}: ", options))
+#if PARALLEL
+
+            var tasks = new List<Task>();
+
+            var terms = Results.GetNotNullTerms(Terms, out int count);
+
+            //using (var progressBar = new ProgressBar(count, $"Step 0 of {count}: ", options))
             {
                 for (int i = 0; i < MAX_INSTANCES; i++)
                 {
                     var i1 = i;
                     tasks.Add(new Task(async () =>
                     {
-                        using (Web = DriverHelper.CreateDriver())
+                        using (var web = DriverHelper.CreateDriver(i1))
                         {
-                            await GenerateResults(progressBar, terms, GetMin(i1, count), GetMax(i1, count), i1 == 0);
+                            await GenerateResults(web, null, terms, GetMin(i1, count), GetMax(i1, count), i1 == 0);
+                            webs.Add(web);
                         }
                     }));
                 }
@@ -90,12 +95,22 @@ namespace SEO_Calculator
 
                 await Task.WhenAll(tasks);
             }
+#else
+            var terms = Results.GetNotNullTerms(Terms, out int count);
+            using (var progressBar = new ProgressBar(count, $"Step 0 of {count}: ", options))
+            using (var web = DriverHelper.CreateDriver())
+            {
+                await GenerateResults(web, progressBar, terms, 0, count, true);
+            }
+#endif
 
             SortResults(ResultSorting);
             DisplayResults(ResultFormat);
 
             //Console.Read();
         }
+
+#if PARALLEL
 
         private static int GetMin(int i, int count)
         {
@@ -108,11 +123,16 @@ namespace SEO_Calculator
             return (int)(i + 1 * (count / (float)MAX_INSTANCES));
         }
 
+#endif
+
         private static void OnExit()
         {
-            //web.Close();
-            //web.Quit();
-            //web.Dispose();
+            foreach (var web in webs)
+            {
+                web.Close();
+                web.Quit();
+                web.Dispose();
+            }
         }
     }
 }

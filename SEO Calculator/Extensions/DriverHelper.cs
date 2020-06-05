@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using OpenQA.Selenium;
@@ -51,6 +52,11 @@ namespace SEO_Calculator.Extensions
 
         public static ChromeDriver CreateDriver()
         {
+            return CreateDriver(-1);
+        }
+
+        public static ChromeDriver CreateDriver(int index)
+        {
             const int width = 1040,
                       height = 890;
 
@@ -74,7 +80,11 @@ namespace SEO_Calculator.Extensions
 
             chromeOptions.AddArgument($@"--user-agent=""{userAgent}""");
 
-            chromeOptions.AddArgument("--user-data-dir=chrome-data");
+            var datadir = index > -1 ? $"chrome-data-{index}" : "chrome-data";
+            var folder = Path.Combine(Environment.CurrentDirectory, datadir);
+            if (Directory.Exists(folder)) IOHelper.DeleteDirectory(folder);
+            // Directory.Delete(folder, true);
+            chromeOptions.AddArgument($"--user-data-dir={datadir}");
             chromeOptions.AddArgument($"--window-size={width},{height}");
 
             // ReSharper disable once JoinDeclarationAndInitializer
@@ -112,7 +122,18 @@ namespace SEO_Calculator.Extensions
             //    driver = new ChromeDriver(service, chromeOptions);
             //}
             //else
-            driver = new ChromeDriver(chromeOptions);
+
+            if (index > -1)
+            {
+                ChromeDriverService service = ChromeDriverService.CreateDefaultService();
+                service.Port = service.Port + index;
+
+                driver = new ChromeDriver(service, chromeOptions);
+            }
+            else
+            {
+                driver = new ChromeDriver(chromeOptions);
+            }
 
             var paramsForDisableDriver = new Dictionary<string, object>
             {

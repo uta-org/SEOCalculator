@@ -130,7 +130,7 @@ namespace SEO_Calculator.Core
         internal const string ResultStatsId = "result-stats";
 
         // Get URL SourceCode
-        internal static async Task<string> GetUrlSourceCode(SearchEngines engine, string url, string term, bool useRest = false)
+        internal static async Task<string> GetUrlSourceCode(IWebDriver web, SearchEngines engine, string url, string term, bool useRest = false)
         {
             string engineUrl = "";
 
@@ -154,20 +154,20 @@ namespace SEO_Calculator.Core
             {
                 var task = Task.Run(() =>
                 {
-                    var curUrl = Web.Url;
+                    var curUrl = web.Url;
                     bool search = true;
                     if (engine == SearchEngines.Bing && !curUrl.Contains("bing") || engine == SearchEngines.Google && !curUrl.Contains("google"))
                     {
-                        Web.Navigate().GoToUrl(url);
+                        web.Navigate().GoToUrl(url);
                         search = false;
                     }
 
                     if (search)
                     {
-                        var element = Web.WaitForElement(By.XPath(SearchBarXPath));
+                        var element = web.WaitForElement(By.XPath(SearchBarXPath));
                         var text = element.GetAttribute("value");
 
-                        var action = new Actions(Web);
+                        var action = new Actions(web);
 
                         for (int i = 0; i < text.Length; i++)
                             action = action.SendKeys(element, Keys.Backspace);
@@ -176,14 +176,14 @@ namespace SEO_Calculator.Core
                         element.SendKeys(term);
                     }
 
-                    var button = Web.WaitForElement(By.XPath(SearchButtonXPath));
+                    var button = web.WaitForElement(By.XPath(SearchButtonXPath));
                     button.Click();
 
                     Thread.Sleep(200);
 
                     // TODO: Check for bot confirmation
 
-                    return Web.PageSource;
+                    return web.PageSource;
                 });
 
                 await task;
@@ -196,9 +196,9 @@ namespace SEO_Calculator.Core
         }
 
         // Get Bing Results
-        internal static async Task<long> GetBingResults(string searchPattern)
+        internal static async Task<long> GetBingResults(IWebDriver web, string searchPattern)
         {
-            var source = GetUrlSourceCode(SearchEngines.Bing, $"{BingQuery}{searchPattern}", searchPattern);
+            var source = GetUrlSourceCode(web, SearchEngines.Bing, $"{BingQuery}{searchPattern}", searchPattern);
             await source;
 
             try
@@ -215,9 +215,9 @@ namespace SEO_Calculator.Core
         }
 
         // Get Google Results
-        internal static async Task<long> GetGoogleResults(string searchPattern)
+        internal static async Task<long> GetGoogleResults(IWebDriver web, string searchPattern)
         {
-            var source = GetUrlSourceCode(SearchEngines.Google, string.Format(GoogleQuery, searchPattern), searchPattern);
+            var source = GetUrlSourceCode(web, SearchEngines.Google, string.Format(GoogleQuery, searchPattern), searchPattern);
             await source;
 
             try
@@ -233,9 +233,9 @@ namespace SEO_Calculator.Core
             }
         }
 
-        internal static async Task GenerateResults(ProgressBar progressBar, string[] terms, int min, int max, bool clear)
+        internal static async Task GenerateResults(IWebDriver web, ProgressBar progressBar, string[] terms, int min, int max, bool clear)
         {
-            await Results.Generate(progressBar, terms, min, max, SearchEngine, clear);
+            await Results.Generate(web, progressBar, terms, min, max, SearchEngine, clear);
         }
 
         internal static void SortResults(Sorting sorting)
