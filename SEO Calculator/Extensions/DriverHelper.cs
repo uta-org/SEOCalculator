@@ -10,7 +10,7 @@ namespace SEO_Calculator.Extensions
 {
     public static class DriverHelper
     {
-        public static IWebDriver Web { get; private set; }
+        //public static IWebDriver Web { get; private set; }
 
         private const string TimeoutExceptionMessage = @"internalLoopMilliseconds must be smaller than the timeout!";
 
@@ -49,19 +49,7 @@ namespace SEO_Calculator.Extensions
             return element;
         }
 
-        public static async Task ConsumeDriver(Action<IWebDriver> callback)
-        {
-            if (callback == null)
-                throw new ArgumentNullException(nameof(callback));
-
-            using (Web = CreateDriver())
-            {
-                var task = Task.Run(() => callback(Web));
-                await task;
-            }
-        }
-
-        private static ChromeDriver CreateDriver()
+        public static ChromeDriver CreateDriver()
         {
             const int width = 1040,
                       height = 890;

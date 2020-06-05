@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using OpenQA.Selenium;
 using SEO_Calculator.Extensions;
 using static SEO_Calculator.Core.SEO;
 
@@ -8,6 +9,8 @@ namespace SEO_Calculator
 {
     internal class Program
     {
+        public static IWebDriver Web { get; private set; }
+
         private static bool exitSystem = false;
 
         #region Trap application termination
@@ -54,9 +57,15 @@ namespace SEO_Calculator
             _handler += Handler;
             SetConsoleCtrlHandler(_handler, true);
 
-            await DriverHelper.ConsumeDriver(async web => await GenerateResults(ResultSorting));
+            //await DriverHelper.ConsumeDriver(async web => await GenerateResults(ResultSorting));
+            using (Web = DriverHelper.CreateDriver())
+            {
+                await GenerateResults(ResultSorting);
+            }
 
             DisplayResults(ResultFormat);
+
+            //Console.Read();
         }
 
         private static void OnExit()

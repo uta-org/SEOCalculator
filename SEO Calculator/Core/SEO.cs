@@ -13,7 +13,7 @@ using SEO_Calculator.Enums;
 using SEO_Calculator.Extensions;
 using SEO_Calculator.Model;
 using static SEO_Calculator.Extensions.StringHelper;
-using static SEO_Calculator.Extensions.DriverHelper;
+using static SEO_Calculator.Program;
 
 namespace SEO_Calculator.Core
 {
