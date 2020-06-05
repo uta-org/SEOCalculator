@@ -57,7 +57,7 @@ namespace SEO_Calculator.Model
                         break;
 
                     case SearchEngines.Google:
-                        BingResults.AddRange(await GetGoogleResults(web, term));
+                        GoogleResults.AddRange(await GetGoogleResults(web, term));
                         break;
                 }
 
@@ -71,8 +71,8 @@ namespace SEO_Calculator.Model
 
         private static void Persist()
         {
-            var bingJson = JsonConvert.SerializeObject(BingResults);
-            var googleJson = JsonConvert.SerializeObject(GoogleResults);
+            var bingJson = JsonConvert.SerializeObject(BingResults, Formatting.Indented);
+            var googleJson = JsonConvert.SerializeObject(GoogleResults, Formatting.Indented);
 
             var bingFile = Path.Combine(Environment.CurrentDirectory, "bing.json");
             var googleFile = Path.Combine(Environment.CurrentDirectory, "google.json");

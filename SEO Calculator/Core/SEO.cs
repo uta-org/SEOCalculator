@@ -242,6 +242,7 @@ namespace SEO_Calculator.Core
             }
 
             List<Result> results = new List<Result>();
+            long lastResult = 0;
 
         Retry:
             var task = GetUrlSourceCode(web, SearchEngines.Google, string.Format(GoogleQuery, searchPattern), searchPattern, LastPageSource?.SpellOrig == null);
@@ -262,7 +263,7 @@ namespace SEO_Calculator.Core
 
             var spelledWord = task.Result.SpellOrig?.Text;
             results.Add(string.IsNullOrEmpty(spelledWord) ? new Result(searchPattern, result) :
-                new Result(searchPattern, result, spelledWord));
+                new Result(searchPattern, lastResult, spelledWord, result));
 
             task.Result.SpellOrig?.Click();
 
@@ -270,6 +271,7 @@ namespace SEO_Calculator.Core
                 return results;
 
             searchPattern = spelledWord;
+            lastResult = result;
             goto Retry;
         }
 
