@@ -74,8 +74,8 @@ namespace SEO_Calculator.Model
             var bingJson = JsonConvert.SerializeObject(BingResults);
             var googleJson = JsonConvert.SerializeObject(GoogleResults);
 
-            var bingFile = Path.Combine(Environment.NewLine, "bing.json");
-            var googleFile = Path.Combine(Environment.NewLine, "google.json");
+            var bingFile = Path.Combine(Environment.CurrentDirectory, "bing.json");
+            var googleFile = Path.Combine(Environment.CurrentDirectory, "google.json");
 
             File.WriteAllText(bingFile, bingJson);
             File.WriteAllText(googleFile, googleJson);
