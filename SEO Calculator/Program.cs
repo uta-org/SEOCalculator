@@ -97,8 +97,9 @@ namespace SEO_Calculator
                 await Task.WhenAll(tasks);
             }
 #else
-            var terms = Results.GetNotNullTerms(Terms, out int count);
+            var terms = Results.GetNotNullTerms(Terms, out var count);
             using (var progressBar = new ProgressBar(count, $"Step 0 of {count}: ", options))
+            // ReSharper disable once ConvertToUsingDeclaration
             using (var web = DriverHelper.CreateDriver())
             {
                 await GenerateResults(web, progressBar, terms, 0, count, true);

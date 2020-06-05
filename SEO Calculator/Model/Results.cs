@@ -1,6 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 using OpenQA.Selenium;
 using SEO_Calculator.Enums;
 using ShellProgressBar;
@@ -58,12 +61,24 @@ namespace SEO_Calculator.Model
                         break;
                 }
 
-                progressBar.Tick($"Step {count} of {termsCount}: {term}"); //will advance pbar to 1 out of 10.
-                                                                           //we can also advance and update the progressbar text
-                                                                           //pbar.Tick("Step 2 of 10");
+                progressBar.Tick($"Step {count} of {termsCount}: {term}");
+
+                Persist();
 
                 ++count;
             }
+        }
+
+        private static void Persist()
+        {
+            var bingJson = JsonConvert.SerializeObject(BingResults);
+            var googleJson = JsonConvert.SerializeObject(GoogleResults);
+
+            var bingFile = Path.Combine(Environment.NewLine, "bing.json");
+            var googleFile = Path.Combine(Environment.NewLine, "google.json");
+
+            File.WriteAllText(bingFile, bingJson);
+            File.WriteAllText(googleFile, googleJson);
         }
     }
 }
