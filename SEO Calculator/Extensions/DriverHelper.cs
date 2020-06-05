@@ -152,5 +152,17 @@ namespace SEO_Calculator.Extensions
 
             return driver;
         }
+
+        public static IWebElement FindElementOrDefault(this IWebDriver web, By by)
+        {
+            try
+            {
+                return web.FindElement(by);
+            }
+            catch
+            {
+                return null;
+            }
+        }
     }
 }

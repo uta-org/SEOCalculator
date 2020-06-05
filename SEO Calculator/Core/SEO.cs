@@ -153,57 +153,62 @@ namespace SEO_Calculator.Core
                     throw new InvalidOperationException("Unsupported engine type.");
             }
 
-            try
+            //Console.WriteLine($"Searching on URL: {url}");
+
+            if (Uri.TryCreate(url, UriKind.Absolute, out var uri)
+                && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
             {
-                var task = Task.Run(() =>
+                //Do something with your validated Absolute URI...
+            }
+            else
+            {
+                uri = new Uri(engineUrl + url);
+            }
+
+            var task = Task.Run(() =>
+            {
+                if (doSearch)
                 {
-                    if (doSearch)
+                    var curUrl = web.Url;
+                    bool search = true;
+                    if (engine == SearchEngines.Bing && !curUrl.Contains("bing") || engine == SearchEngines.Google && !curUrl.Contains("google"))
                     {
-                        var curUrl = web.Url;
-                        bool search = true;
-                        if (engine == SearchEngines.Bing && !curUrl.Contains("bing") || engine == SearchEngines.Google && !curUrl.Contains("google"))
-                        {
-                            web.Navigate().GoToUrl(url);
-                            search = false;
-                        }
-
-                        if (search)
-                        {
-                            var element = web.WaitForElement(By.XPath(SearchBarXPath));
-                            var text = element.GetAttribute("value");
-
-                            var action = new Actions(web);
-
-                            for (int i = 0; i < text.Length; i++)
-                                action = action.SendKeys(element, Keys.Backspace);
-
-                            action.Build().Perform();
-                            element.SendKeys(term);
-                        }
-
-                        var button = web.WaitForElement(By.XPath(SearchButtonXPath));
-                        button.Click();
-
-                        Thread.Sleep(200);
+                        web.Navigate().GoToUrl(uri);
+                        search = false;
                     }
 
-                    // TODO: Check for bot confirmation
+                    if (search)
+                    {
+                        var element = web.WaitForElement(By.XPath(SearchBarXPath));
+                        var text = element.GetAttribute("value");
 
-                    IWebElement spellOrig = web.FindElement(By.XPath(SpellOrigXPath));
-                    var pageSource = spellOrig != null
-                        ? new PageSource(spellOrig, web.PageSource)
-                        : new PageSource(web.PageSource);
+                        var action = new Actions(web);
 
-                    return pageSource;
-                });
+                        for (int i = 0; i < text.Length; i++)
+                            action = action.SendKeys(element, Keys.Backspace);
 
-                await task;
-                return task.Result;
-            }
-            catch (Exception ex)
-            {
-                throw new Exception(ex.Message);
-            }
+                        action.Build().Perform();
+                        element.SendKeys(term);
+                    }
+
+                    var button = web.WaitForElement(By.XPath(SearchButtonXPath));
+                    button.Click();
+
+                    Thread.Sleep(200);
+                }
+
+                // TODO: Check for bot confirmation
+
+                IWebElement spellOrig = web.FindElementOrDefault(By.XPath(SpellOrigXPath));
+                var pageSource = spellOrig != null
+                    ? new PageSource(spellOrig, web.PageSource)
+                    : new PageSource(web.PageSource);
+
+                return pageSource;
+            });
+
+            await task;
+            return task.Result;
         }
 
         // Get Bing Results

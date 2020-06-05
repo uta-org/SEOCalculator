@@ -41,7 +41,9 @@ namespace SEO_Calculator
         {
             Console.WriteLine("Exiting system due to external CTRL-C, or process kill, or shutdown");
 
+#if PARALLEL
             OnExit();
+#endif
 
             //allow main to run off
             exitSystem = true;
