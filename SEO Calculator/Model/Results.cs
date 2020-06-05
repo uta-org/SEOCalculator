@@ -17,6 +17,9 @@ namespace SEO_Calculator.Model
 
         public static List<Result> BingResults { get; set; } = new List<Result>();
 
+        private static string BingFile => Path.Combine(Environment.CurrentDirectory, "bing.json");
+        private static string GoogleFile => Path.Combine(Environment.CurrentDirectory, "google.json");
+
         internal static string[] GetNotNullTerms(string[] terms, out int termsCount)
         {
             var notnullTerms = terms.Where(term => !string.IsNullOrWhiteSpace(term)).ToArray();
@@ -30,6 +33,9 @@ namespace SEO_Calculator.Model
         {
             if (clear)
             {
+                File.Delete(BingFile);
+                File.Delete(GoogleFile);
+
                 BingResults.Clear();
                 GoogleResults.Clear();
             }
@@ -74,11 +80,8 @@ namespace SEO_Calculator.Model
             var bingJson = JsonConvert.SerializeObject(BingResults, Formatting.Indented);
             var googleJson = JsonConvert.SerializeObject(GoogleResults, Formatting.Indented);
 
-            var bingFile = Path.Combine(Environment.CurrentDirectory, "bing.json");
-            var googleFile = Path.Combine(Environment.CurrentDirectory, "google.json");
-
-            File.WriteAllText(bingFile, bingJson);
-            File.WriteAllText(googleFile, googleJson);
+            File.WriteAllText(BingFile, bingJson);
+            File.WriteAllText(GoogleFile, googleJson);
         }
     }
 }
