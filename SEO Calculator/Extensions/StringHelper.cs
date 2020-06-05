@@ -27,12 +27,6 @@ namespace SEO_Calculator.Extensions
         {
             var abbreviation = string.Empty;
 
-            //if (Quantity is short || Quantity is int ||
-            //    Quantity is long)
-            //    Quantity = Strings.FormatNumber(Quantity, TriState.False);
-            //else
-            //    Quantity = Strings.FormatNumber(Quantity, IncludeLeadingDigit: TriState.False);
-
             switch (quantity.Count(character => character == Convert.ToChar(".")))
             {
                 case 0:

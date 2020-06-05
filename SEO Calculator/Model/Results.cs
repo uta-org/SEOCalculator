@@ -9,10 +9,6 @@ namespace SEO_Calculator.Model
 {
     public static class Results
     {
-        static Results()
-        {
-        }
-
         public static List<Result> GoogleResults { get; set; } = new List<Result>();
 
         public static List<Result> BingResults { get; set; } = new List<Result>();
@@ -29,13 +25,15 @@ namespace SEO_Calculator.Model
                 ProgressBarOnBottom = true
             };
 
-            var _terms = Enumerable.Where<string>(terms, term => !string.IsNullOrWhiteSpace(term));
-            int termsCount = _terms.Count();
+            var notnullTerms = terms.Where(term => !string.IsNullOrWhiteSpace(term));
+            // ReSharper disable once PossibleMultipleEnumeration
+            int termsCount = notnullTerms.Count();
 
             int count = 0;
             using (var pbar = new ProgressBar(termsCount, $"Step 0 of {termsCount}: ", options))
             {
-                foreach (var term in _terms)
+                // ReSharper disable once PossibleMultipleEnumeration
+                foreach (var term in notnullTerms)
                 {
                     //if (term != string.Empty)
                     //    UpdateProgress();
