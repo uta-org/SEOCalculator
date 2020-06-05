@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,6 +13,7 @@ using OpenQA.Selenium.Interactions;
 using SEO_Calculator.Enums;
 using SEO_Calculator.Extensions;
 using SEO_Calculator.Model;
+using ShellProgressBar;
 using static SEO_Calculator.Extensions.StringHelper;
 using static SEO_Calculator.Program;
 
@@ -231,10 +233,13 @@ namespace SEO_Calculator.Core
             }
         }
 
-        internal static async Task GenerateResults(Sorting sorting)
+        internal static async Task GenerateResults(ProgressBar progressBar, string[] terms, int min, int max, bool clear)
         {
-            await Results.Generate(Terms, SearchEngine);
+            await Results.Generate(progressBar, terms, min, max, SearchEngine, clear);
+        }
 
+        internal static void SortResults(Sorting sorting)
+        {
             switch (sorting)
             {
                 case Sorting.ResultAscending:

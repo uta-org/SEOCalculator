@@ -1,8 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using OpenQA.Selenium;
 using SEO_Calculator.Extensions;
+using SEO_Calculator.Model;
+using ShellProgressBar;
 using static SEO_Calculator.Core.SEO;
 
 namespace SEO_Calculator
@@ -11,7 +14,9 @@ namespace SEO_Calculator
     {
         public static IWebDriver Web { get; private set; }
 
-        private static bool exitSystem = false;
+        private const int MAX_INSTANCES = 5;
+
+        private static bool exitSystem;
 
         #region Trap application termination
 
@@ -57,15 +62,50 @@ namespace SEO_Calculator
             _handler += Handler;
             SetConsoleCtrlHandler(_handler, true);
 
-            //await DriverHelper.ConsumeDriver(async web => await GenerateResults(ResultSorting));
-            using (Web = DriverHelper.CreateDriver())
+            var tasks = new List<Task>();
+
+            var terms = Results.GetNotNullTerms(Terms, out int count);
+
+            var options = new ProgressBarOptions
             {
-                await GenerateResults(ResultSorting);
+                ProgressCharacter = '─',
+                ProgressBarOnBottom = true
+            };
+
+            using (var progressBar = new ProgressBar(count, $"Step 0 of {count}: ", options))
+            {
+                for (int i = 0; i < MAX_INSTANCES; i++)
+                {
+                    var i1 = i;
+                    tasks.Add(new Task(async () =>
+                    {
+                        using (Web = DriverHelper.CreateDriver())
+                        {
+                            await GenerateResults(progressBar, terms, GetMin(i1, count), GetMax(i1, count), i1 == 0);
+                        }
+                    }));
+                }
+
+                Parallel.ForEach(tasks, task => task.Start());
+
+                await Task.WhenAll(tasks);
             }
 
+            SortResults(ResultSorting);
             DisplayResults(ResultFormat);
 
             //Console.Read();
+        }
+
+        private static int GetMin(int i, int count)
+        {
+            return (int)(i * (count / (float)MAX_INSTANCES));
+        }
+
+        private static int GetMax(int i, int count)
+        {
+            if (i + 1 == MAX_INSTANCES) return count;
+            return (int)(i + 1 * (count / (float)MAX_INSTANCES));
         }
 
         private static void OnExit()

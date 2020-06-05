@@ -13,53 +13,55 @@ namespace SEO_Calculator.Model
 
         public static List<Result> BingResults { get; set; } = new List<Result>();
 
-        // Generate Result Lists
-        internal static async Task Generate(string[] terms, SearchEngines searchEngine)
+        internal static string[] GetNotNullTerms(string[] terms, out int termsCount)
         {
-            BingResults.Clear();
-            GoogleResults.Clear();
-
-            var options = new ProgressBarOptions
-            {
-                ProgressCharacter = '─',
-                ProgressBarOnBottom = true
-            };
-
-            var notnullTerms = terms.Where(term => !string.IsNullOrWhiteSpace(term));
+            var notnullTerms = terms.Where(term => !string.IsNullOrWhiteSpace(term)).ToArray();
             // ReSharper disable once PossibleMultipleEnumeration
-            int termsCount = notnullTerms.Count();
+            termsCount = notnullTerms.Length;
+            return notnullTerms;
+        }
 
-            int count = 0;
-            using (var pbar = new ProgressBar(termsCount, $"Step 0 of {termsCount}: ", options))
+        // Generate Result Lists
+        internal static async Task Generate(ProgressBar progressBar, string[] terms, int min, int max, SearchEngines searchEngine, bool clear)
+        {
+            if (clear)
             {
-                // ReSharper disable once PossibleMultipleEnumeration
-                foreach (var term in notnullTerms)
+                BingResults.Clear();
+                GoogleResults.Clear();
+            }
+
+            int termsCount = terms.Length;
+            int count = 0;
+
+            // ReSharper disable once PossibleMultipleEnumeration
+            //foreach (var term in terms)
+            for (int i = min; i < max; i++)
+            {
+                var term = terms[i];
+                //if (term != string.Empty)
+                //    UpdateProgress();
+
+                switch (searchEngine)
                 {
-                    //if (term != string.Empty)
-                    //    UpdateProgress();
+                    case SearchEngines.All:
+                        BingResults.Add(new Result(term, await GetBingResults(term)));
+                        GoogleResults.Add(new Result(term, await GetGoogleResults(term)));
+                        break;
 
-                    switch (searchEngine)
-                    {
-                        case SearchEngines.All:
-                            BingResults.Add(new Result(term, await GetBingResults(term)));
-                            GoogleResults.Add(new Result(term, await GetGoogleResults(term)));
-                            break;
+                    case SearchEngines.Bing:
+                        BingResults.Add(new Result(term, await GetBingResults(term)));
+                        break;
 
-                        case SearchEngines.Bing:
-                            BingResults.Add(new Result(term, await GetBingResults(term)));
-                            break;
-
-                        case SearchEngines.Google:
-                            BingResults.Add(new Result(term, await GetGoogleResults(term)));
-                            break;
-                    }
-
-                    pbar.Tick($"Step {count} of {termsCount}: {term}"); //will advance pbar to 1 out of 10.
-                    //we can also advance and update the progressbar text
-                    //pbar.Tick("Step 2 of 10");
-
-                    ++count;
+                    case SearchEngines.Google:
+                        BingResults.Add(new Result(term, await GetGoogleResults(term)));
+                        break;
                 }
+
+                progressBar.Tick($"Step {count} of {termsCount}: {term}"); //will advance pbar to 1 out of 10.
+                                                                           //we can also advance and update the progressbar text
+                                                                           //pbar.Tick("Step 2 of 10");
+
+                ++count;
             }
         }
     }
