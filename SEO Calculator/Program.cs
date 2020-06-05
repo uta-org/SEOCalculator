@@ -1,10 +1,8 @@
 ﻿// #define PARALLEL
 
 using System;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using OpenQA.Selenium;
 using SEO_Calculator.Extensions;
 using SEO_Calculator.Model;
 using ShellProgressBar;
@@ -14,9 +12,10 @@ namespace SEO_Calculator
 {
     internal class Program
     {
+#if PARALLEL
         private const int MAX_INSTANCES = 5;
-
         private static List<IWebDriver> webs = new List<IWebDriver>();
+#endif
 
         private static bool exitSystem;
 
@@ -123,8 +122,6 @@ namespace SEO_Calculator
             return (int)(i + 1 * (count / (float)MAX_INSTANCES));
         }
 
-#endif
-
         private static void OnExit()
         {
             foreach (var web in webs)
@@ -134,5 +131,6 @@ namespace SEO_Calculator
                 web.Dispose();
             }
         }
+#endif
     }
 }

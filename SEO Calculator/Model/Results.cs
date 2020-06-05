@@ -46,7 +46,7 @@ namespace SEO_Calculator.Model
                 {
                     case SearchEngines.All:
                         BingResults.Add(new Result(term, await GetBingResults(web, term)));
-                        GoogleResults.Add(new Result(term, await GetGoogleResults(web, term)));
+                        GoogleResults.AddRange(await GetGoogleResults(web, term));
                         break;
 
                     case SearchEngines.Bing:
@@ -54,7 +54,7 @@ namespace SEO_Calculator.Model
                         break;
 
                     case SearchEngines.Google:
-                        BingResults.Add(new Result(term, await GetGoogleResults(web, term)));
+                        BingResults.AddRange(await GetGoogleResults(web, term));
                         break;
                 }
 

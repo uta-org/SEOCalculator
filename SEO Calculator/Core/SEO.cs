@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -127,10 +128,15 @@ namespace SEO_Calculator.Core
 
         internal const string SearchButtonXPath = "/html/body/div[3]/form/div[2]/div[1]/div[2]/button";
 
-        internal const string ResultStatsId = "result-stats";
+        internal const string SpellOrigXPath =
+            "/html/body/div[6]/div[2]/div[9]/div[1]/div[2]/div/div[1]/div[2]/div/p/a[2]";
+
+        private static PageSource LastPageSource { get; set; }
+
+        //internal const string ResultStatsId = "result-stats";
 
         // Get URL SourceCode
-        internal static async Task<string> GetUrlSourceCode(IWebDriver web, SearchEngines engine, string url, string term, bool useRest = false)
+        internal static async Task<PageSource> GetUrlSourceCode(IWebDriver web, SearchEngines engine, string url, string term, bool doSearch)
         {
             string engineUrl = "";
 
@@ -147,43 +153,48 @@ namespace SEO_Calculator.Core
                     throw new InvalidOperationException("Unsupported engine type.");
             }
 
-            if (!useRest)
-                url = engineUrl + url;
-
             try
             {
                 var task = Task.Run(() =>
                 {
-                    var curUrl = web.Url;
-                    bool search = true;
-                    if (engine == SearchEngines.Bing && !curUrl.Contains("bing") || engine == SearchEngines.Google && !curUrl.Contains("google"))
+                    if (doSearch)
                     {
-                        web.Navigate().GoToUrl(url);
-                        search = false;
+                        var curUrl = web.Url;
+                        bool search = true;
+                        if (engine == SearchEngines.Bing && !curUrl.Contains("bing") || engine == SearchEngines.Google && !curUrl.Contains("google"))
+                        {
+                            web.Navigate().GoToUrl(url);
+                            search = false;
+                        }
+
+                        if (search)
+                        {
+                            var element = web.WaitForElement(By.XPath(SearchBarXPath));
+                            var text = element.GetAttribute("value");
+
+                            var action = new Actions(web);
+
+                            for (int i = 0; i < text.Length; i++)
+                                action = action.SendKeys(element, Keys.Backspace);
+
+                            action.Build().Perform();
+                            element.SendKeys(term);
+                        }
+
+                        var button = web.WaitForElement(By.XPath(SearchButtonXPath));
+                        button.Click();
+
+                        Thread.Sleep(200);
                     }
-
-                    if (search)
-                    {
-                        var element = web.WaitForElement(By.XPath(SearchBarXPath));
-                        var text = element.GetAttribute("value");
-
-                        var action = new Actions(web);
-
-                        for (int i = 0; i < text.Length; i++)
-                            action = action.SendKeys(element, Keys.Backspace);
-
-                        action.Build().Perform();
-                        element.SendKeys(term);
-                    }
-
-                    var button = web.WaitForElement(By.XPath(SearchButtonXPath));
-                    button.Click();
-
-                    Thread.Sleep(200);
 
                     // TODO: Check for bot confirmation
 
-                    return web.PageSource;
+                    IWebElement spellOrig = web.FindElement(By.XPath(SpellOrigXPath));
+                    var pageSource = spellOrig != null
+                        ? new PageSource(spellOrig, web.PageSource)
+                        : new PageSource(web.PageSource);
+
+                    return pageSource;
                 });
 
                 await task;
@@ -198,13 +209,13 @@ namespace SEO_Calculator.Core
         // Get Bing Results
         internal static async Task<long> GetBingResults(IWebDriver web, string searchPattern)
         {
-            var source = GetUrlSourceCode(web, SearchEngines.Bing, $"{BingQuery}{searchPattern}", searchPattern);
-            await source;
+            var task = GetUrlSourceCode(web, SearchEngines.Bing, $"{BingQuery}{searchPattern}", searchPattern, true);
+            await task;
 
             try
             {
                 return Convert.ToInt64(Convert
-                    .ToString(Regex.Match(Convert.ToString(Regex.Match(source.Result, BingRegExResultsA).Groups[0]),
+                    .ToString(Regex.Match(Convert.ToString(Regex.Match(task.Result.Source, BingRegExResultsA).Groups[0]),
                             BingRegExResultsB).Groups[0]
                     ).Replace(".", ""));
             }
@@ -215,22 +226,46 @@ namespace SEO_Calculator.Core
         }
 
         // Get Google Results
-        internal static async Task<long> GetGoogleResults(IWebDriver web, string searchPattern)
+        internal static async Task<List<Result>> GetGoogleResults(IWebDriver web, string searchPattern)
         {
-            var source = GetUrlSourceCode(web, SearchEngines.Google, string.Format(GoogleQuery, searchPattern), searchPattern);
-            await source;
-
-            try
+            long GetLong(Task<PageSource> task1)
             {
                 return Convert.ToInt64(Convert
-                    .ToString(Regex.Match(Convert.ToString(Regex.Match(source.Result, GoogleRegExResultsA).Groups[0]),
+                    .ToString(Regex.Match(Convert.ToString(Regex.Match(task1.Result.Source, GoogleRegExResultsA).Groups[0]),
                             GoogleRegExResultsB).Groups[0]
                     ).Replace(",", ""));
             }
+
+            List<Result> results = new List<Result>();
+
+        Retry:
+            var task = GetUrlSourceCode(web, SearchEngines.Google, string.Format(GoogleQuery, searchPattern), searchPattern, LastPageSource?.SpellOrig == null);
+            await task;
+
+            LastPageSource = task.Result;
+
+            long result;
+
+            try
+            {
+                result = GetLong(task);
+            }
             catch
             {
-                return 0;
+                result = 0;
             }
+
+            var spelledWord = task.Result.SpellOrig?.Text;
+            results.Add(string.IsNullOrEmpty(spelledWord) ? new Result(searchPattern, result) :
+                new Result(searchPattern, result, spelledWord));
+
+            task.Result.SpellOrig?.Click();
+
+            if (task.Result.SpellOrig == null)
+                return results;
+
+            searchPattern = spelledWord;
+            goto Retry;
         }
 
         internal static async Task GenerateResults(IWebDriver web, ProgressBar progressBar, string[] terms, int min, int max, bool clear)
@@ -383,6 +418,27 @@ namespace SEO_Calculator.Core
                     // Start the file using Shell Execute.
                     Process.Start(ResultsFileTxt);
                     break;
+            }
+        }
+
+        internal class PageSource
+        {
+            public IWebElement SpellOrig { get; }
+            public string Source { get; }
+
+            private PageSource()
+            {
+            }
+
+            public PageSource(string source)
+            {
+                Source = source;
+            }
+
+            public PageSource(IWebElement spellOrig, string source)
+            {
+                SpellOrig = spellOrig;
+                Source = source;
             }
         }
     }
